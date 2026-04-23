@@ -80,98 +80,108 @@
     <script>
         const SUPABASE_URL = 'https://vcbhwpahrzdjbakflwvd.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZjYmh3cGFocnpkamJha2Zsd3ZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY5NTEzMzEsImV4cCI6MjA5MjUyNzMzMX0.Uv71jxtuVhoofw7Z5daMB7JhGncUNQyRslTuGhl_KI0';
-        const supabaseClient = exports.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    let supabaseClient; // ここでは宣言だけ
+    let allWords = [];
+    let quizQueue = [];
+    let correctCount = 0;
+    let totalQuestions = 0;
+    let currentWord = null;
 
-        let allWords = [];
-        let quizQueue = [];
-        let correctCount = 0;
-        let totalQuestions = 0;
+    // ページ切り替え関数
+    function showPage(pageId) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.getElementById(pageId).classList.add('active');
+    }
 
-        // ページ切り替え関数
-        function showPage(pageId) {
-            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-            document.getElementById(pageId).classList.add('active');
-        }
+    // 1. データの読み込み
+    async function loadData() {
+        const tableInput = document.getElementById('tableName').value.trim();
+        if (!tableInput) return alert("テーブル名を入力してください");
 
-        // 1. データの読み込み
-        async function loadData() {
-            const tableInput = document.getElementById('tableName').value.trim();
-            if (!tableInput) return alert("テーブル名を入力してください");
-
-            const btn = document.getElementById('loadBtn');
-            const loader = document.getElementById('loader');
-
-            btn.disabled = true;
-            loader.style.display = 'block';
-
+        // --- 修正ポイント：ここで初期化を行う ---
+        if (!supabaseClient) {
             try {
-                const { data, error } = await supabaseClient.from(tableInput).select('*');
-                if (error) throw error;
-                if (!data || data.length === 0) throw new Error("データが見つかりませんでした。");
-
-                allWords = data;
-                
-                // 一覧を表示して次へ
-                const list = document.getElementById('wordList');
-                list.innerHTML = allWords.map(w => `<tr><td><b>${w.english}</b></td><td>${w.japanese}</td></tr>`).join('');
-                
-                showPage('page-list');
-            } catch (err) {
-                alert("エラー: " + err.message);
-            } finally {
-                btn.disabled = false;
-                loader.style.display = 'none';
+                // window.supabase または exports.supabase を確認して作成
+                const lib = window.supabase || exports.supabase;
+                supabaseClient = lib.createClient(SUPABASE_URL, SUPABASE_KEY);
+            } catch (e) {
+                return alert("Supabaseライブラリの初期化に失敗しました。URLやKeyを確認してください。");
             }
         }
 
-        // 2. クイズ開始（シャッフル）
-        function startQuiz() {
-            quizQueue = [...allWords].sort(() => Math.random() - 0.5); // ランダムシャッフル
-            totalQuestions = quizQueue.length;
-            correctCount = 0;
-            document.getElementById('totalNum').innerText = totalQuestions;
-            showPage('page-quiz');
-            nextQuestion();
-        }
+        const btn = document.getElementById('loadBtn');
+        const loader = document.getElementById('loader');
 
-        // 3. 次の問題
-        function nextQuestion() {
-            if (quizQueue.length === 0) {
-                showResult();
-                return;
-            }
+        btn.disabled = true;
+        loader.style.display = 'block';
 
-            currentWord = quizQueue.shift();
-            document.getElementById('currentNum').innerText = totalQuestions - quizQueue.length;
-            document.getElementById('qJapanese').innerText = currentWord.japanese;
-            document.getElementById('userAnswer').value = '';
-            document.getElementById('userAnswer').focus();
-            document.getElementById('feedback').innerText = '';
-        }
+        try {
+            const { data, error } = await supabaseClient.from(tableInput).select('*');
+            if (error) throw error;
+            if (!data || data.length === 0) throw new Error("データが空か、テーブル名が正しくありません。");
 
-        // 4. 正誤判定
-        function checkAnswer() {
-            const ans = document.getElementById('userAnswer').value.trim();
-            const fb = document.getElementById('feedback');
+            allWords = data;
             
-            if (ans === currentWord.english) {
-                correctCount++;
-                fb.innerHTML = "<span style='color:var(--primary)'>✅ 正解！</span>";
-                setTimeout(nextQuestion, 800);
-            } else {
-                fb.innerHTML = `<span style='color:#e74c3c'>❌ 不正解... 答: ${currentWord.english}</span>`;
-                // 不正解の場合は少し長く表示してから次へ
-                setTimeout(nextQuestion, 1800);
-            }
+            const list = document.getElementById('wordList');
+            list.innerHTML = allWords.map(w => `<tr><td><b>${w.english}</b></td><td>${w.japanese}</td></tr>`).join('');
+            
+            showPage('page-list');
+        } catch (err) {
+            alert("エラー: " + err.message);
+            console.error(err);
+        } finally {
+            btn.disabled = false;
+            loader.style.display = 'none';
+        }
+    }
+
+    // 2. クイズ開始（シャッフル）
+    function startQuiz() {
+        quizQueue = [...allWords].sort(() => Math.random() - 0.5);
+        totalQuestions = quizQueue.length;
+        correctCount = 0;
+        document.getElementById('totalNum').innerText = totalQuestions;
+        showPage('page-quiz');
+        nextQuestion();
+    }
+
+    // 3. 次の問題
+    function nextQuestion() {
+        if (quizQueue.length === 0) {
+            showResult();
+            return;
         }
 
-        // 5. 結果表示
-        function showResult() {
-            const percent = Math.round((correctCount / totalQuestions) * 100);
-            document.getElementById('finalScore').innerText = percent + "%";
-            document.getElementById('resultDetail').innerText = `${totalQuestions}問中 ${correctCount}問正解でした。`;
-            showPage('page-result');
+        currentWord = quizQueue.shift();
+        document.getElementById('currentNum').innerText = totalQuestions - quizQueue.length;
+        document.getElementById('qJapanese').innerText = currentWord.japanese;
+        document.getElementById('userAnswer').value = '';
+        document.getElementById('userAnswer').focus();
+        document.getElementById('feedback').innerText = '';
+    }
+
+    // 4. 正誤判定
+    function checkAnswer() {
+        const ans = document.getElementById('userAnswer').value.trim();
+        const fb = document.getElementById('feedback');
+        
+        if (ans === currentWord.english) {
+            correctCount++;
+            fb.innerHTML = "<span style='color:var(--primary)'>✅ 正解！</span>";
+            setTimeout(nextQuestion, 800);
+        } else {
+            fb.innerHTML = `<span style='color:#e74c3c'>❌ 不正解... 答: ${currentWord.english}</span>`;
+            setTimeout(nextQuestion, 1800);
         }
-    </script>
+    }
+
+    // 5. 結果表示
+    function showResult() {
+        const percent = Math.round((correctCount / totalQuestions) * 100);
+        document.getElementById('finalScore').innerText = percent + "%";
+        document.getElementById('resultDetail').innerText = `${totalQuestions}問中 ${correctCount}問正解でした。`;
+        showPage('page-result');
+    }
+</script>
 </body>
 </html>
