@@ -2,106 +2,175 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Supabase単語アプリ</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supabase単語アプリ Pro</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { font-family: sans-serif; max-width: 600px; margin: 20px auto; padding: 20px; background-color: #f0f2f5; }
-        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        input { width: calc(100% - 22px); padding: 10px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 6px; }
-        button { width: 100%; padding: 10px; background: #3ecf8e; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
-        button:hover { background: #36b87d; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9rem; }
-        th, td { border-bottom: 1px solid #eee; padding: 8px; text-align: left; }
-        .quiz-q { font-size: 1.5rem; text-align: center; margin: 20px 0; font-weight: bold; }
-        #feedback { text-align: center; height: 20px; margin-top: 10px; }
+        :root { --primary: #3ecf8e; --bg: #f8fafc; --text: #1e293b; }
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; background-color: var(--bg); color: var(--text); margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        .container { background: white; width: 90%; max-width: 600px; padding: 40px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); text-align: center; }
+        
+        /* セクション管理 */
+        .page { display: none; }
+        .page.active { display: block; animation: fadeIn 0.5s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        h2 { margin-top: 0; color: #333; }
+        input { width: 100%; padding: 12px; margin: 15px 0; border: 2px solid #e2e8f0; border-radius: 10px; box-sizing: border-box; font-size: 1rem; }
+        button { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; font-size: 1rem; transition: 0.2s; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        
+        /* ローディング */
+        #loader { display: none; margin: 10px 0; color: var(--primary); font-weight: bold; }
+        .spinner { display: inline-block; width: 20px; height: 20px; border: 3px solid rgba(62,207,142,.3); border-radius: 50%; border-top-color: var(--primary); animation: spin 1s ease-in-out infinite; vertical-align: middle; margin-right: 8px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* 一覧表示 */
+        .scroll-area { max-height: 300px; overflow-y: auto; border: 1px solid #eee; margin: 20px 0; border-radius: 10px; }
+        table { width: 100%; border-collapse: collapse; }
+        td, th { padding: 12px; border-bottom: 1px solid #f1f5f9; text-align: left; }
+
+        /* クイズ */
+        .q-text { font-size: 2rem; margin: 30px 0; font-weight: bold; color: #1e293b; }
+        .progress { font-size: 0.9rem; color: #64748b; margin-bottom: 10px; }
+        #feedback { min-height: 30px; margin-top: 15px; font-weight: bold; }
+        
+        /* 結果画面 */
+        .score { font-size: 3rem; color: var(--primary); font-weight: bold; margin: 20px 0; }
     </style>
 </head>
 <body>
 
-    <div class="card">
-        <h2>1. 接続設定</h2>
-        <input type="text" id="tableName" placeholder="テーブル名を入力 (例: my_words)">
-        <button onclick="loadData()">データを取得する</button>
-    </div>
+    <div class="container">
+        <div id="page-setup" class="page active">
+            <h2>単語アプリ</h2>
+            <p>Supabaseのテーブル名を入力してください</p>
+            <input type="text" id="tableName" placeholder="例: toeic_words">
+            <button id="loadBtn" onclick="loadData()">データを取得する</button>
+            <div id="loader"><span class="spinner"></span>データ取得中...</div>
+        </div>
 
-    <div id="listCard" class="card" style="display:none;">
-        <h2>2. 単語一覧</h2>
-        <table>
-            <thead><tr><th>英</th><th>日</th></tr></thead>
-            <tbody id="wordList"></tbody>
-        </table>
-        <br>
-        <button onclick="startQuiz()" style="background:#444;">クイズを開始</button>
-    </div>
+        <div id="page-list" class="page">
+            <h2>単語一覧</h2>
+            <div class="scroll-area">
+                <table>
+                    <tbody id="wordList"></tbody>
+                </table>
+            </div>
+            <button onclick="startQuiz()">テストを開始する</button>
+            <p style="cursor:pointer; color:#64748b; font-size:0.8rem;" onclick="showPage('page-setup')">戻る</p>
+        </div>
 
-    <div id="quizCard" class="card" style="display:none;">
-        <h2>3. クイズ</h2>
-        <div id="qJapanese" class="quiz-q"></div>
-        <input type="text" id="userAnswer" placeholder="英語で答えを入力">
-        <button onclick="checkAnswer()">回答する</button>
-        <div id="feedback"></div>
+        <div id="page-quiz" class="page">
+            <div class="progress">問題 <span id="currentNum">0</span> / <span id="totalNum">0</span></div>
+            <div id="qJapanese" class="q-text"></div>
+            <input type="text" id="userAnswer" placeholder="英語を入力してEnter" autocomplete="off" onkeypress="if(event.key==='Enter') checkAnswer()">
+            <button onclick="checkAnswer()">回答する</button>
+            <div id="feedback"></div>
+        </div>
+
+        <div id="page-result" class="page">
+            <h2>テスト終了！</h2>
+            <div class="score" id="finalScore">0%</div>
+            <p id="resultDetail"></p>
+            <button onclick="showPage('page-setup')">最初に戻る</button>
+        </div>
     </div>
 
     <script>
-        // ★ここを書き換えてください★
         const SUPABASE_URL = 'https://vcbhwpahrzdjbakflwvd.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZjYmh3cGFocnpkamJha2Zsd3ZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY5NTEzMzEsImV4cCI6MjA5MjUyNzMzMX0.Uv71jxtuVhoofw7Z5daMB7JhGncUNQyRslTuGhl_KI0';
+        const supabaseClient = exports.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        let supabaseClient;
-        let words = [];
-        let currentWord = null;
+        let allWords = [];
+        let quizQueue = [];
+        let correctCount = 0;
+        let totalQuestions = 0;
 
-        // 初期化：ライブラリが読み込まれてからクライアントを作成
-        window.onload = () => {
-            if (window.supabase) {
-                supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-            } else {
-                alert("Supabaseライブラリの読み込みに失敗しました。ネット接続を確認してください。");
-            }
-        };
+        // ページ切り替え関数
+        function showPage(pageId) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById(pageId).classList.add('active');
+        }
 
+        // 1. データの読み込み
         async function loadData() {
-            const tableName = document.getElementById('tableName').value.trim();
-            if (!tableName) return alert("テーブル名を入力してください");
+            const tableInput = document.getElementById('tableName').value.trim();
+            if (!tableInput) return alert("テーブル名を入力してください");
+
+            const btn = document.getElementById('loadBtn');
+            const loader = document.getElementById('loader');
+
+            btn.disabled = true;
+            loader.style.display = 'block';
 
             try {
-                const { data, error } = await supabaseClient.from(tableName).select('*');
+                const { data, error } = await supabaseClient.from(tableInput).select('*');
                 if (error) throw error;
+                if (!data || data.length === 0) throw new Error("データが見つかりませんでした。");
+
+                allWords = data;
                 
-                words = data;
-                renderTable();
-                document.getElementById('listCard').style.display = 'block';
+                // 一覧を表示して次へ
+                const list = document.getElementById('wordList');
+                list.innerHTML = allWords.map(w => `<tr><td><b>${w.english}</b></td><td>${w.japanese}</td></tr>`).join('');
+                
+                showPage('page-list');
             } catch (err) {
-                alert("エラー: " + err.message + "\n※テーブル名が正しいか、RLS設定が『公開』になっているか確認してください。");
+                alert("エラー: " + err.message);
+            } finally {
+                btn.disabled = false;
+                loader.style.display = 'none';
             }
         }
 
-        function renderTable() {
-            const list = document.getElementById('wordList');
-            list.innerHTML = words.map(w => `<tr><td>${w.english}</td><td>${w.japanese}</td></tr>`).join('');
-        }
-
+        // 2. クイズ開始（シャッフル）
         function startQuiz() {
-            document.getElementById('quizCard').style.display = 'block';
+            quizQueue = [...allWords].sort(() => Math.random() - 0.5); // ランダムシャッフル
+            totalQuestions = quizQueue.length;
+            correctCount = 0;
+            document.getElementById('totalNum').innerText = totalQuestions;
+            showPage('page-quiz');
             nextQuestion();
         }
 
+        // 3. 次の問題
         function nextQuestion() {
-            currentWord = words[Math.floor(Math.random() * words.length)];
+            if (quizQueue.length === 0) {
+                showResult();
+                return;
+            }
+
+            currentWord = quizQueue.shift();
+            document.getElementById('currentNum').innerText = totalQuestions - quizQueue.length;
             document.getElementById('qJapanese').innerText = currentWord.japanese;
             document.getElementById('userAnswer').value = '';
+            document.getElementById('userAnswer').focus();
             document.getElementById('feedback').innerText = '';
         }
 
+        // 4. 正誤判定
         function checkAnswer() {
             const ans = document.getElementById('userAnswer').value.trim();
             const fb = document.getElementById('feedback');
+            
             if (ans === currentWord.english) {
-                fb.innerHTML = "<b style='color:green'>正解！</b>";
-                setTimeout(nextQuestion, 1000);
+                correctCount++;
+                fb.innerHTML = "<span style='color:var(--primary)'>✅ 正解！</span>";
+                setTimeout(nextQuestion, 800);
             } else {
-                fb.innerHTML = `<b style='color:red'>残念！ 答: ${currentWord.english}</b>`;
+                fb.innerHTML = `<span style='color:#e74c3c'>❌ 不正解... 答: ${currentWord.english}</span>`;
+                // 不正解の場合は少し長く表示してから次へ
+                setTimeout(nextQuestion, 1800);
             }
+        }
+
+        // 5. 結果表示
+        function showResult() {
+            const percent = Math.round((correctCount / totalQuestions) * 100);
+            document.getElementById('finalScore').innerText = percent + "%";
+            document.getElementById('resultDetail').innerText = `${totalQuestions}問中 ${correctCount}問正解でした。`;
+            showPage('page-result');
         }
     </script>
 </body>
