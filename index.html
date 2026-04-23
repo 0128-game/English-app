@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Supabase単語アプリ</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: sans-serif; max-width: 800px; margin: 20px auto; padding: 20px; line-height: 1.6; }
+        .section { border: 1px solid #ddd; padding: 15px; margin-bottom: 20px; border-radius: 8px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+        input[type="text"] { padding: 8px; width: 200px; }
+        button { padding: 8px 15px; cursor: pointer; background: #3ecf8e; color: white; border: none; border-radius: 4px; }
+        button:hover { background: #36b87d; }
+        .correct { color: green; font-weight: bold; }
+        .incorrect { color: red; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <h1>📚 Supabase 単語学習アプリ</h1>
+
+    <div class="section">
+        <h3>1. テーブル選択</h3>
+        <input type="text" id="tableName" placeholder="例: toeic_words">
+        <button onclick="loadData()">データを読み込む</button>
+    </div>
+
+    <div id="displaySection" class="section" style="display:none;">
+        <h3>2. 単語一覧</h3>
+        <table id="wordTable">
+            <thead>
+                <tr><th>英語</th><th>日本語</th></tr>
+            </thead>
+            <tbody id="wordList"></tbody>
+        </table>
+        <br>
+        <button onclick="startQuiz()">このテーブルでクイズを始める</button>
+    </div>
+
+    <div id="quizSection" class="section" style="display:none;">
+        <h3>3. 和英クイズ</h3>
+        <p>「<span id="qJapanese" style="font-size: 1.2rem; font-weight: bold;"></span>」を英語で書くと？</p>
+        <input type="text" id="userAnswer" placeholder="英語を入力">
+        <button onclick="checkAnswer()">回答する</button>
+        <p id="feedback"></p>
+    </div>
+
+    <script>
+        // --- Supabaseの設定 (自身のものに書き換えてください) ---
+        const SUPABASE_URL = 'https://vcbhwpahrzdjbakflwvd.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZjYmh3cGFocnpkamJha2Zsd3ZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY5NTEzMzEsImV4cCI6MjA5MjUyNzMzMX0.Uv71jxtuVhoofw7Z5daMB7JhGncUNQyRslTuGhl_KI0';
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        let words = [];
+        let currentWord = null;
+
+        // データの読み込み
+        async function loadData() {
+            const tableName = document.getElementById('tableName').value;
+            if (!tableName) return alert("テーブル名を入力してください");
+
+            const { data, error } = await supabase.from(tableName).select('*');
+
+            if (error) {
+                alert("エラー: " + error.message);
+            } else {
+                words = data;
+                renderTable();
+                document.getElementById('displaySection').style.display = 'block';
+                document.getElementById('quizSection').style.display = 'none';
+            }
+        }
+
+        // 一覧の描画
+        function renderTable() {
+            const list = document.getElementById('wordList');
+            list.innerHTML = words.map(w => `<tr><td>${w.english}</td><td>${w.japanese}</td></tr>`).join('');
+        }
+
+        // クイズ開始
+        function startQuiz() {
+            if (words.length === 0) return;
+            document.getElementById('quizSection').style.display = 'block';
+            nextQuestion();
+        }
+
+        // 次の問題
+        function nextQuestion() {
+            currentWord = words[Math.floor(Math.random() * words.length)];
+            document.getElementById('qJapanese').innerText = currentWord.japanese;
+            document.getElementById('userAnswer').value = '';
+            document.getElementById('feedback').innerText = '';
+        }
+
+        // 正誤判定
+        function checkAnswer() {
+            const answer = document.getElementById('userAnswer').value.trim();
+            const feedback = document.getElementById('feedback');
+
+            // 完全一致判定
+            if (answer === currentWord.english) {
+                feedback.innerHTML = '<span class="correct">正解です！ ✅</span>';
+                setTimeout(nextQuestion, 1500); // 1.5秒後に次へ
+            } else {
+                feedback.innerHTML = `<span class="incorrect">不正解... ❌ 答えは: ${currentWord.english}</span>`;
+            }
+        }
+    </script>
+</body>
+</html>
