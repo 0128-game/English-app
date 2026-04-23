@@ -73,8 +73,7 @@
             <h2>テスト終了！</h2>
             <div class="score" id="finalScore">0%</div>
             <p id="resultDetail"></p>
-　　　　　　　<button onclick="showPage('page-setup')">最初に戻る</button>
-　　　　　　　<button onclick="showPage('page-list')">単語一覧に戻る</button>
+            <button onclick="showPage('page-setup')">最初に戻る</button>
         </div>
     </div>
 
@@ -99,11 +98,16 @@
         const tableInput = document.getElementById('tableName').value.trim();
         if (!tableInput) return alert("テーブル名を入力してください");
 
-// --- 修正箇所：初期化処理の安定化 ---
+        // --- 修正ポイント：ここで初期化を行う ---
         if (!supabaseClient) {
-            const lib = window.supabase || (typeof exports !== 'undefined' ? exports.supabase : null);
-            if (!lib) return alert("Supabaseライブラリが読み込まれていません。");
-            supabaseClient = lib.createClient(SUPABASE_URL, SUPABASE_KEY);
+            try {
+                // window.supabase または exports.supabase を確認して作成
+                const lib = window.supabase || exports.supabase;
+                supabaseClient = lib.createClient(SUPABASE_URL, SUPABASE_KEY);
+            } catch (e) {
+                return alert("Supabaseライブラリの初期化に失敗しました。URLやKeyを確認してください。");
+            }
+        }
 
         const btn = document.getElementById('loadBtn');
         const loader = document.getElementById('loader');
