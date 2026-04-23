@@ -37,6 +37,8 @@
         
         /* 結果画面 */
         .score { font-size: 3rem; color: var(--primary); font-weight: bold; margin: 20px 0; }
+        /* 修正箇所：間違えた単語の強調スタイル */
+        .wrong-word { background-color: #ffebee !important; }
     </style>
 </head>
 <body>
@@ -92,12 +94,29 @@
         document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
         document.getElementById(pageId).classList.add('active');
     }
+    
+        function renderTable(tableName) {
+        const list = document.getElementById('wordList');
+        // localStorageからこのテーブルの間違いリストを取得
+        const wrongWords = JSON.parse(localStorage.getItem('wrong_' + tableName) || "[]");
+
+        list.innerHTML = allWords.map(w => {
+            // 間違いリストに含まれているかチェック
+            const isWrong = wrongWords.includes(w.english);
+            return `<tr class="${isWrong ? 'wrong-word' : ''}">
+                        <td><b>${w.english}</b></td>
+                        <td>${w.japanese}</td>
+                    </tr>`;
+        }).join('');
+    }
 
     // 1. データの読み込み
     async function loadData() {
         const tableInput = document.getElementById('tableName').value.trim();
         if (!tableInput) return alert("テーブル名を入力してください");
-
+// --- 修正箇所：テーブル名を保存 ---
+        localStorage.setItem('lastTableName', tableInput);
+        
         // --- 修正ポイント：ここで初期化を行う ---
         if (!supabaseClient) {
             try {
@@ -124,6 +143,9 @@
             
             const list = document.getElementById('wordList');
             list.innerHTML = allWords.map(w => `<tr><td><b>${w.english}</b></td><td>${w.japanese}</td></tr>`).join('');
+
+// --- 修正箇所：レンダリング関数の呼び出し ---
+            renderTable(tableInput);
             
             showPage('page-list');
         } catch (err) {
@@ -170,6 +192,11 @@
             fb.innerHTML = "<span style='color:var(--primary)'>✅ 正解！</span>";
             setTimeout(nextQuestion, 800);
         } else {
+            let wrongWords = JSON.parse(localStorage.getItem('wrong_' + tableName) || "[]");
+            if (!wrongWords.includes(currentWord.english)) {
+                wrongWords.push(currentWord.english);
+                localStorage.setItem('wrong_' + tableName, JSON.stringify(wrongWords));
+            }
             fb.innerHTML = `<span style='color:#e74c3c'>❌ 不正解... 答: ${currentWord.english}</span>`;
             setTimeout(nextQuestion, 1800);
         }
