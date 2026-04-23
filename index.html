@@ -192,32 +192,33 @@ function renderTable(tableName) {
     }
 
     // 4. 正誤判定
-    function checkAnswer() {
+function checkAnswer() {
         const ans = document.getElementById('userAnswer').value.trim();
         const fb = document.getElementById('feedback');
+        
+        // --- 修正箇所：まず現在のテーブル名を取得 ---
+        const currentTable = localStorage.getItem('lastTableName');
         let wrongData = JSON.parse(localStorage.getItem('wrong_data_' + currentTable) || "{}");
         
         if (ans === currentWord.english) {
             correctCount++;
             fb.innerHTML = "<span style='color:var(--primary)'>✅ 正解！</span>";
+            
+            // 間違いリストにある単語なら正解数をカウントアップ
             if (wrongData[currentWord.english] !== undefined) {
-                wrongData[currentWord.english]++; // 連続正解数をカウントアップ
+                wrongData[currentWord.english]++;
                 if (wrongData[currentWord.english] >= 3) {
-                    delete wrongData[currentWord.english]; // 3回正解で克服！削除する
+                    delete wrongData[currentWord.english]; // 3回正解で克服
                 }
                 localStorage.setItem('wrong_data_' + currentTable, JSON.stringify(wrongData));
             }
-            
             setTimeout(nextQuestion, 800);
             
-} else {
-            // ここで tableName を取得するように修正
-            const currentTable = localStorage.getItem('lastTableName'); 
-            
-            if (!wrongWords.includes(currentWord.english)) {
+        } else {
+            // --- 修正箇所：間違えた場合はカウントを0にして保存 ---
             wrongData[currentWord.english] = 0; 
             localStorage.setItem('wrong_data_' + currentTable, JSON.stringify(wrongData));
-            }
+            
             fb.innerHTML = `<span style='color:#e74c3c'>❌ 不正解... 答: ${currentWord.english}</span>`;
             setTimeout(nextQuestion, 1800);
         }
