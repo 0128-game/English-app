@@ -191,11 +191,14 @@
             correctCount++;
             fb.innerHTML = "<span style='color:var(--primary)'>✅ 正解！</span>";
             setTimeout(nextQuestion, 800);
-        } else {
-            let wrongWords = JSON.parse(localStorage.getItem('wrong_' + tableName) || "[]");
+} else {
+            // ここで tableName を取得するように修正
+            const currentTable = localStorage.getItem('lastTableName'); 
+            let wrongWords = JSON.parse(localStorage.getItem('wrong_' + currentTable) || "[]");
+            
             if (!wrongWords.includes(currentWord.english)) {
                 wrongWords.push(currentWord.english);
-                localStorage.setItem('wrong_' + tableName, JSON.stringify(wrongWords));
+                localStorage.setItem('wrong_' + currentTable, JSON.stringify(wrongWords));
             }
             fb.innerHTML = `<span style='color:#e74c3c'>❌ 不正解... 答: ${currentWord.english}</span>`;
             setTimeout(nextQuestion, 1800);
