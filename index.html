@@ -90,19 +90,28 @@
     let currentWord = null;
 
     // ページ切り替え関数
-    function showPage(pageId) {
+function showPage(pageId) {
         document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
         document.getElementById(pageId).classList.add('active');
+
+        // 一覧ページを表示する時は、常にテーブルを再描画して最新の「赤色」状態を反映する
+        if (pageId === 'page-list') {
+            const currentTable = localStorage.getItem('lastTableName');
+            if (currentTable && allWords.length > 0) {
+                renderTable(currentTable);
+            }
+        }
     }
     
-        function renderTable(tableName) {
+function renderTable(tableName) {
         const list = document.getElementById('wordList');
-        // localStorageからこのテーブルの間違いリストを取得
-        const wrongWords = JSON.parse(localStorage.getItem('wrong_' + tableName) || "[]");
+        // 保存形式変更に伴い取得方法を変更
+        const wrongData = JSON.parse(localStorage.getItem('wrong_data_' + tableName) || "{}");
 
         list.innerHTML = allWords.map(w => {
-            // 間違いリストに含まれているかチェック
-            const isWrong = wrongWords.includes(w.english);
+            // オブジェクトのキーに単語が存在するかで判定
+            const isWrong = wrongData[w.english] !== undefined;
+            // 連続正解数も表示したければ、${wrongData[w.english] || 0}/3 のように出せます
             return `<tr class="${isWrong ? 'wrong-word' : ''}">
                         <td><b>${w.english}</b></td>
                         <td>${w.japanese}</td>
@@ -186,19 +195,28 @@
     function checkAnswer() {
         const ans = document.getElementById('userAnswer').value.trim();
         const fb = document.getElementById('feedback');
+        let wrongData = JSON.parse(localStorage.getItem('wrong_data_' + currentTable) || "{}");
         
         if (ans === currentWord.english) {
             correctCount++;
             fb.innerHTML = "<span style='color:var(--primary)'>✅ 正解！</span>";
+            if (wrongData[currentWord.english] !== undefined) {
+                wrongData[currentWord.english]++; // 連続正解数をカウントアップ
+                if (wrongData[currentWord.english] >= 3) {
+                    delete wrongData[currentWord.english]; // 3回正解で克服！削除する
+                }
+                localStorage.setItem('wrong_data_' + currentTable, JSON.stringify(wrongData));
+            }
+            
             setTimeout(nextQuestion, 800);
+            
 } else {
             // ここで tableName を取得するように修正
             const currentTable = localStorage.getItem('lastTableName'); 
-            let wrongWords = JSON.parse(localStorage.getItem('wrong_' + currentTable) || "[]");
             
             if (!wrongWords.includes(currentWord.english)) {
-                wrongWords.push(currentWord.english);
-                localStorage.setItem('wrong_' + currentTable, JSON.stringify(wrongWords));
+            wrongData[currentWord.english] = 0; 
+            localStorage.setItem('wrong_data_' + currentTable, JSON.stringify(wrongData));
             }
             fb.innerHTML = `<span style='color:#e74c3c'>❌ 不正解... 答: ${currentWord.english}</span>`;
             setTimeout(nextQuestion, 1800);
