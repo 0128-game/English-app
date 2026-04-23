@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Supabase単語アプリ Pro</title>
+    <title>VocaClear</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root { --primary: #3ecf8e; --bg: #f8fafc; --text: #1e293b; }
@@ -45,8 +45,8 @@
 
     <div class="container">
         <div id="page-setup" class="page active">
-            <h2>単語アプリ</h2>
-            <p>Supabaseのテーブル名を入力してください</p>
+            <h2>VocaClear</h2>
+            <p>コードを入力してください</p>
             <input type="text" id="tableName" placeholder="例: toeic_words">
             <button id="loadBtn" onclick="loadData()">データを取得する</button>
             <div id="loader"><span class="spinner"></span>データ取得中...</div>
@@ -54,6 +54,7 @@
 
         <div id="page-list" class="page">
             <h2>単語一覧</h2>
+            <p>※赤い単語は過去に間違ったことのある単語です</p>
             <div class="scroll-area">
                 <table>
                     <tbody id="wordList"></tbody>
