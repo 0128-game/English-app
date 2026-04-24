@@ -98,25 +98,19 @@
     let correctCount = 0;
     let totalQuestions = 0;
     let currentWord = null;
-
-    // ページ切り替え関数
-function showPage(pageId) {
-        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-        document.getElementById(pageId).classList.add('active');
-
-        // 一覧ページを表示する時は、常にテーブルを再描画して最新の「赤色」状態を反映する
-        if (pageId === 'page-list') {
-            const currentTable = localStorage.getItem('lastTableName');
-            if (currentTable && allWords.length > 0) {
-                renderTable(currentTable);
-            }
-        }
-    }
-    
-function renderTable(tableName) {
-    let hideEnglish = false;
+let hideEnglish = false;
     let hideJapanese = false;
 
+    // 表示・非表示を切り替える関数
+    function toggleHide(type) {
+        if (type === 'en') hideEnglish = !hideEnglish;
+        if (type === 'jp') hideJapanese = !hideJapanese;
+        
+        const currentTable = localStorage.getItem('lastTableName');
+        if (currentTable) renderTable(currentTable); 
+    }
+
+    // 単語一覧を描画する関数
     function renderTable(tableName) {
         const list = document.getElementById('wordList');
         const wrongData = JSON.parse(localStorage.getItem('wrong_data_' + tableName) || "{}");
@@ -129,8 +123,6 @@ function renderTable(tableName) {
                     </tr>`;
         }).join('');
     }
-    }
-
     // 1. データの読み込み
     async function loadData() {
         const tableInput = document.getElementById('tableName').value.trim();
