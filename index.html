@@ -39,6 +39,8 @@
         .score { font-size: 3rem; color: var(--primary); font-weight: bold; margin: 20px 0; }
         /* 修正箇所：間違えた単語の強調スタイル */
         .wrong-word { background-color: #ffebee !important; }
+        /* 修正箇所：完全に非表示にする（背景色と同じにして見えなくする） */
+        .hidden-col { visibility: hidden; }
     </style>
 </head>
 <body>
@@ -52,18 +54,23 @@
             <div id="loader"><span class="spinner"></span>データ取得中...</div>
         </div>
 
-        <div id="page-list" class="page">
+<div id="page-list" class="page">
             <h2>単語一覧</h2>
-            <p>※赤い単語は過去に間違ったことのある単語です</p>
+            <p>赤い単語は過去に間違ったことがある単語です</p>
             <div class="scroll-area">
                 <table>
+                    <thead>
+                        <tr>
+                            <th class="clickable" onclick="toggleHide('en')">英語</th>
+                            <th class="clickable" onclick="toggleHide('jp')">日本語</th>
+                        </tr>
+                    </thead>
                     <tbody id="wordList"></tbody>
                 </table>
             </div>
             <button onclick="startQuiz()">テストを開始する</button>
             <p style="cursor:pointer; color:#64748b; font-size:0.8rem;" onclick="showPage('page-setup')">戻る</p>
         </div>
-
         <div id="page-quiz" class="page">
             <div class="progress">問題 <span id="currentNum">0</span> / <span id="totalNum">0</span></div>
             <div id="qJapanese" class="q-text"></div>
@@ -107,19 +114,21 @@ function showPage(pageId) {
     }
     
 function renderTable(tableName) {
+    let hideEnglish = false;
+    let hideJapanese = false;
+
+    function renderTable(tableName) {
         const list = document.getElementById('wordList');
-        // 保存形式変更に伴い取得方法を変更
         const wrongData = JSON.parse(localStorage.getItem('wrong_data_' + tableName) || "{}");
 
         list.innerHTML = allWords.map(w => {
-            // オブジェクトのキーに単語が存在するかで判定
             const isWrong = wrongData[w.english] !== undefined;
-            // 連続正解数も表示したければ、${wrongData[w.english] || 0}/3 のように出せます
             return `<tr class="${isWrong ? 'wrong-word' : ''}">
-                        <td><b>${w.english}</b></td>
-                        <td>${w.japanese}</td>
+                        <td class="${hideEnglish ? 'hidden-col' : ''}"><b>${w.english}</b></td>
+                        <td class="${hideJapanese ? 'hidden-col' : ''}">${w.japanese}</td>
                     </tr>`;
         }).join('');
+    }
     }
 
     // 1. データの読み込み
