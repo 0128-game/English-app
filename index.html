@@ -98,6 +98,20 @@
     let correctCount = 0;
     let totalQuestions = 0;
     let currentWord = null;
+
+            // ページ切り替え関数
+function showPage(pageId) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.getElementById(pageId).classList.add('active');
+
+        // 一覧ページを表示する時は、常にテーブルを再描画して最新の「赤色」状態を反映する
+        if (pageId === 'page-list') {
+            const currentTable = localStorage.getItem('lastTableName');
+            if (currentTable && allWords.length > 0) {
+                renderTable(currentTable);
+            }
+        }
+    }
 let hideEnglish = false;
     let hideJapanese = false;
 
