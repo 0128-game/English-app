@@ -49,6 +49,8 @@
         <div id="page-setup" class="page active">
             <h2>VocaClear - 英単語表&テスト</h2>
             <p>コードを入力してください</p>
+            <p>ニックネームを入力してください</p>
+            <input type="text" id="nickname" placeholder="例: Tarou_English" maxlength="15">   
             <input type="text" id="tableName" placeholder="コードを入力...">
             <button id="loadBtn" onclick="loadData()">データを取得する</button>
             <div id="loader"><span class="spinner"></span>データ取得中...</div>
@@ -85,12 +87,18 @@
             <div id="feedback"></div>
         </div>
 
-        <div id="page-result" class="page">
-            <h2>テスト終了！</h2>
-            <div class="score" id="finalScore">0%</div>
-            <p id="resultDetail"></p>
-            <button onclick="showPage('page-list')">単語一覧に戻る</button>
-        </div>
+      <div id="page-result" class="page">
+    <h2>テスト終了！</h2>
+    <div class="score" id="finalScore">0%</div>
+    <p id="resultDetail"></p>
+    
+    <div id="rankingArea" style="margin: 20px 0; text-align: left; background: #f1f5f9; padding: 15px; border-radius: 10px; display: none;">
+        <h4 style="margin: 0 0 10px 0;">🏆 暫定ランキング (TOP 5)</h4>
+        <div id="rankingList" style="font-size: 0.9rem;"></div>
+    </div>
+
+    <button onclick="showPage('page-list')">単語一覧に戻る</button>
+</div>
     </div>
 
     <script>
@@ -190,9 +198,34 @@ let hideEnglish = false;
     }
 
     // 2. クイズ開始（シャッフル）
-function startQuiz(mode) {
+async function startQuiz(mode) {
         if (allWords.length === 0) return alert("データがありません");
-        currentMode = mode; // モードを保存
+        
+        const currentTable = localStorage.getItem('lastTableName');
+
+        // --- 本番モードのパスワード照会処理 ---
+        if (mode === 'exam') {
+            const inputPass = prompt("本番モード用パスワードを入力してください:");
+            if (!inputPass) return;
+
+            const { data, error } = await supabaseClient
+                .from('table_passwords')
+                .select('password')
+                .eq('table_name', currentTable)
+                .single();
+
+            if (error || !data) {
+                alert("このテーブルには本番モードの設定がありません。");
+                return;
+            }
+
+            if (inputPass !== data.password) {
+                alert("パスワードが正しくありません。");
+                return;
+            }
+        }
+
+        currentMode = mode;
         quizQueue = [...allWords].sort(() => Math.random() - 0.5);
         totalQuestions = quizQueue.length;
         correctCount = 0;
@@ -200,7 +233,6 @@ function startQuiz(mode) {
         showPage('page-quiz');
         nextQuestion();
     }
-
     // 3. 次の問題
     function nextQuestion() {
         if (quizQueue.length === 0) {
@@ -251,35 +283,77 @@ function checkAnswer() {
 
     // 5. 結果表示
 async function showResult() {
-        const percent = Math.round((correctCount / totalQuestions) * 100);
-        document.getElementById('finalScore').innerText = percent + "%";
-        document.getElementById('resultDetail').innerText = 
-            (currentMode === 'exam' ? "[本番] " : "[練習] ") + 
-            `${totalQuestions}問中 ${correctCount}問正解でした。`;
+    const percent = Math.round((correctCount / totalQuestions) * 100);
+    const nickname = document.getElementById('nickname').value.trim() || 'anonymous';
+    const currentTable = localStorage.getItem('lastTableName');
 
-        // --- 修正箇所：本番モードなら結果をSupabaseに保存 ---
-        if (currentMode === 'exam') {
-            const currentTable = localStorage.getItem('lastTableName');
-            const { error } = await supabaseClient
-                .from('quiz_results')
-                .insert([
-                    { 
-                        table_name: currentTable, 
-                        score_percent: percent, 
-                        correct_count: correctCount, 
-                        total_count: totalQuestions 
-                    }
-                ]);
-            
-            if (error) {
-                console.error("結果の保存に失敗:", error);
-                alert("結果の保存に失敗しました。");
-            } else {
-                console.log("結果を保存しました。");
-            }
+    document.getElementById('finalScore').innerText = percent + "%";
+    document.getElementById('resultDetail').innerText = 
+        (currentMode === 'exam' ? `[本番: ${nickname}] ` : "[練習] ") + 
+        `${totalQuestions}問中 ${correctCount}問正解でした。`;
+
+    if (currentMode === 'exam') {
+        // 1. 結果を保存
+        const { error: insertError } = await supabaseClient
+            .from('quiz_results')
+            .insert([{ 
+                table_name: currentTable, 
+                nickname: nickname,
+                score_percent: percent, 
+                correct_count: correctCount, 
+                total_count: totalQuestions 
+            }]);
+
+        if (!insertError) {
+            // 2. ランキングを取得して表示
+            await updateRanking(currentTable);
         }
+    } else {
+        document.getElementById('rankingArea').style.display = 'none';
+    }
 
-        showPage('page-result');
-    }</script>
+    showPage('page-result');
+}
+
+async function updateRanking(tableName) {
+        const { data, error } = await supabaseClient
+            .from('quiz_results')
+            .select('nickname, score_percent, created_at')
+            .eq('table_name', tableName)
+            .order('score_percent', { ascending: false })
+            .order('created_at', { ascending: true })
+            .limit(10); // 念のため10位まで取得して計算
+
+        if (data && data.length > 0) {
+            const rankingList = document.getElementById('rankingList');
+            let html = "";
+            let lastScore = -1;
+            let rank = 0;
+            let tieCount = 0;
+
+            data.slice(0, 5).forEach((res, i) => {
+                // スコアが前と同じなら順位を据え置き、違うなら現在のカウントを順位にする
+                if (res.score_percent !== lastScore) {
+                    rank = i + 1;
+                    tieCount = data.filter(d => d.score_percent === res.score_percent).length;
+                }
+                
+                const isTie = tieCount > 1;
+                const rankText = isTie ? `${rank}位タイ` : `${rank}位`;
+
+                html += `
+                    <div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px dashed #cbd5e1;">
+                        <span>${rankText}: ${res.nickname}</span>
+                        <b>${res.score_percent}%</b>
+                    </div>`;
+                
+                lastScore = res.score_percent;
+            });
+
+            rankingList.innerHTML = html;
+            document.getElementById('rankingArea').style.display = 'block';
+        }
+    }
+    </script>
 </body>
 </html>
