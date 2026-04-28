@@ -69,8 +69,11 @@
                     <tbody id="wordList"></tbody>
                 </table>
             </div>
-            <button onclick="startQuiz()">テストを開始する</button>
-            <p style="cursor:pointer; color:#64748b; font-size:0.8rem;" onclick="showPage('page-setup')">戻る</p>
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+    <button onclick="startQuiz('practice')" style="background: #64748b;">練習モード (記録なし)</button>
+    <button onclick="startQuiz('exam')">本番モード (結果を保存)</button>
+</div>
+    <p style="cursor:pointer; color:#64748b; font-size:0.8rem;" onclick="showPage('page-setup')">戻る</p>
         </div>
         <div id="page-quiz" class="page">
             <div class="progress">問題 <span id="currentNum">0</span> / <span id="totalNum">0</span></div>
@@ -99,6 +102,7 @@
     let correctCount = 0;
     let totalQuestions = 0;
     let currentWord = null;
+    let currentMode = 'practice'; // 'practice' or 'exam'
 
             // ページ切り替え関数
 function showPage(pageId) {
@@ -186,7 +190,9 @@ let hideEnglish = false;
     }
 
     // 2. クイズ開始（シャッフル）
-    function startQuiz() {
+function startQuiz(mode) {
+        if (allWords.length === 0) return alert("データがありません");
+        currentMode = mode; // モードを保存
         quizQueue = [...allWords].sort(() => Math.random() - 0.5);
         totalQuestions = quizQueue.length;
         correctCount = 0;
@@ -244,12 +250,36 @@ function checkAnswer() {
     }
 
     // 5. 結果表示
-    function showResult() {
+async function showResult() {
         const percent = Math.round((correctCount / totalQuestions) * 100);
         document.getElementById('finalScore').innerText = percent + "%";
-        document.getElementById('resultDetail').innerText = `${totalQuestions}問中 ${correctCount}問正解でした。`;
+        document.getElementById('resultDetail').innerText = 
+            (currentMode === 'exam' ? "[本番] " : "[練習] ") + 
+            `${totalQuestions}問中 ${correctCount}問正解でした。`;
+
+        // --- 修正箇所：本番モードなら結果をSupabaseに保存 ---
+        if (currentMode === 'exam') {
+            const currentTable = localStorage.getItem('lastTableName');
+            const { error } = await supabaseClient
+                .from('quiz_results')
+                .insert([
+                    { 
+                        table_name: currentTable, 
+                        score_percent: percent, 
+                        correct_count: correctCount, 
+                        total_count: totalQuestions 
+                    }
+                ]);
+            
+            if (error) {
+                console.error("結果の保存に失敗:", error);
+                alert("結果の保存に失敗しました。");
+            } else {
+                console.log("結果を保存しました。");
+            }
+        }
+
         showPage('page-result');
-    }
-</script>
+    }</script>
 </body>
 </html>
