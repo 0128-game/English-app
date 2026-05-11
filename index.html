@@ -141,18 +141,57 @@
             }).join('');
         }
 
-        async function loadData() {
-            const tableInput = document.getElementById('tableName').value.trim();
-            if (!tableInput) return alert("テーブル名を入力してください");
-            localStorage.setItem('lastTableName', tableInput);
-            
-            if (!supabaseClient) {
-                try {
-                    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-                } catch (e) {
-                    return alert("Supabaseの初期化に失敗しました。");
-                }
-            }
+async function loadData() {
+    const tableInput = document.getElementById('tableName').value.trim();
+    const nicknameInput = document.getElementById('nickname').value.trim() || 'anonymous';
+    
+    if (!tableInput) return alert("テーブル名を入力してください");
+    localStorage.setItem('lastTableName', tableInput);
+    
+    if (!supabaseClient) {
+        try {
+            supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        } catch (e) {
+            return alert("Supabaseの初期化に失敗しました。");
+        }
+    }
+
+    const btn = document.getElementById('loadBtn');
+    const loader = document.getElementById('loader');
+    btn.disabled = true;
+    loader.style.display = 'block';
+
+    try {
+        // 1. 本来の単語データ取得
+        const { data, error } = await supabaseClient.from(tableInput).select('*');
+        if (error) throw error;
+        if (!data || data.length === 0) throw new Error("データが空か、テーブル名が正しくありません。");
+        
+        allWords = data;
+        renderTable(tableInput);
+        showPage('page-list');
+
+        // --- 2. ログイン記録の送信 (追加箇所) ---
+        if (nicknameInput !== 'admin') {
+            // ログ送信に失敗しても学習を止めないよう、awaitせず、エラーも無視するスタイル
+            supabaseClient
+                .from('login_record')
+                .insert([{ 
+                    nickname: nicknameInput, 
+                    table_name: tableInput 
+                }])
+                .then(({ error }) => {
+                    if (error) console.error("Login Record Error:", error);
+                });
+        }
+
+    } catch (err) {
+        alert("エラー: " + err.message);
+    } finally {
+        btn.disabled = false;
+        loader.style.display = 'none';
+    }
+}
 
             const btn = document.getElementById('loadBtn');
             const loader = document.getElementById('loader');
