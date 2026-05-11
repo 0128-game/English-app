@@ -174,45 +174,78 @@
             }
         }
 
-        async function startQuiz(mode) {
-            if (allWords.length === 0) return alert("データがありません");
-            const currentTable = localStorage.getItem('lastTableName');
+async function startQuiz(mode) {
+    if (allWords.length === 0) return alert("データがありません");
+    const currentTable = localStorage.getItem('lastTableName');
 
-            if (mode === 'exam') {
-                const inputPass = prompt("本番モード用パスワードを入力してください:");
-                if (!inputPass) return;
-                const { data, error } = await supabaseClient.from('table_passwords').select('password').eq('table_name', currentTable).single();
-                if (error || !data || inputPass !== data.password) {
-                    return alert("パスワードが正しくないか、設定されていません。");
-                }
-            }
+    // --- 本番モードのパスワード照会 & 範囲絞り込み ---
+    if (mode === 'exam') {
+        const inputPass = prompt("本番モード用パスワードを入力してください:");
+        if (!inputPass) return;
 
-            pendingQuizMode = mode; 
-            if (allWords.length >= 11) {
-                document.getElementById('modal-msg').innerText = `全 ${allWords.length} 問見つかりました。出題範囲を選んでください。`;
-                document.getElementById('quiz-limit-modal').style.display = 'flex';
-            } else {
-                applyQuizLimit('all');
-            }
+        // パスワード確認
+        const { data: passData, error: passError } = await supabaseClient
+            .from('table_passwords')
+            .select('password')
+            .eq('table_name', currentTable)
+            .single();
+
+        if (passError || !passData || inputPass !== passData.password) {
+            return alert("パスワードが正しくないか、設定されていません。");
         }
+
+        // --- 本番モード専用：test列がTrueのものだけを抽出 ---
+        // 11問以上ある場合のみtest列を参照するロジック
+        let examWords = [];
+        if (allWords.length >= 11) {
+            examWords = allWords.filter(w => w.test === true);
+            if (examWords.length === 0) {
+                return alert("本番用の問題（test列がTrueのもの）が設定されていません。");
+            }
+        } else {
+            // 10問以下のテーブルは全問が対象
+            examWords = [...allWords];
+        }
+
+        // 本番モードは選択肢を出さずに即開始
+        pendingQuizMode = 'exam';
+        startExecutingQuiz(examWords); 
+        return; 
+    }
+
+    // --- 練習モード（practice）の場合 ---
+    pendingQuizMode = 'practice'; 
+    if (allWords.length >= 11) {
+        // 11問以上なら「10問 vs 全問」のGUIを表示
+        document.getElementById('modal-msg').innerText = `全 ${allWords.length} 問あります。練習する範囲を選んでください。`;
+        document.getElementById('quiz-limit-modal').style.display = 'flex';
+    } else {
+        // 10問以下なら即開始
+        applyQuizLimit('all');
+    }
+}
 
         function closeQuizModal() {
             document.getElementById('quiz-limit-modal').style.display = 'none';
         }
 
-        function applyQuizLimit(limit) {
-            closeQuizModal();
-            let tempQueue = [...allWords].sort(() => Math.random() - 0.5);
-            if (limit === 10) tempQueue = tempQueue.slice(0, 10);
+function applyQuizLimit(limit) {
+    closeQuizModal();
+    let tempQueue = [...allWords].sort(() => Math.random() - 0.5);
+    if (limit === 10) tempQueue = tempQueue.slice(0, 10);
+    startExecutingQuiz(tempQueue);
+}
 
-            currentMode = pendingQuizMode;
-            quizQueue = tempQueue;
-            totalQuestions = quizQueue.length;
-            correctCount = 0;
-            document.getElementById('totalNum').innerText = totalQuestions;
-            showPage('page-quiz');
-            nextQuestion();
-        }
+    function startExecutingQuiz(wordsArray) {
+    // シャッフルしてセット
+    quizQueue = [...wordsArray].sort(() => Math.random() - 0.5);
+    currentMode = pendingQuizMode;
+    totalQuestions = quizQueue.length;
+    correctCount = 0;
+    document.getElementById('totalNum').innerText = totalQuestions;
+    showPage('page-quiz');
+    nextQuestion();
+}
 
         function nextQuestion() {
             isProcessing = false; 
