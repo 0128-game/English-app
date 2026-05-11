@@ -210,26 +210,6 @@ let hideEnglish = false;
         }
     }
 
-    async function prepareQuiz(mode) {
-    if (allWords.length === 0) return alert("データがありません");
-    
-    // 本番モードの場合のみパスワードチェック
-    if (mode === 'exam') {
-        const currentTable = localStorage.getItem('lastTableName');
-        const inputPass = prompt("本番モード用パスワードを入力してください:");
-        if (!inputPass) return;
-
-        const { data, error } = await supabaseClient
-            .from('table_passwords')
-            .select('password')
-            .eq('table_name', currentTable)
-            .single();
-
-        if (error || !data || inputPass !== data.password) {
-            alert("パスワードが正しくないか、設定されていません。");
-            return;
-        }
-    }
 
     // 問題数を選択させる
     let countChoice = "all";
