@@ -37,8 +37,8 @@
         <div id="page-setup" class="page active">
             <h2>VocaClear - 英単語表&テスト</h2>
             <p>ニックネームを入力してください</p>
-            <p>コードを入力してください</p>
             <input type="text" id="nickname" placeholder="ニックネームを入力..." maxlength="15">   
+            <p>コードを入力してください</p>
             <input type="text" id="tableName" placeholder="コードを入力...">
             <button id="loadBtn" onclick="loadData()">データを取得する</button>
             <div id="loader"><span class="spinner"></span>データ取得中...</div>
@@ -46,8 +46,6 @@
 
         <div id="page-list" class="page">
             <h2>単語一覧</h2>
-            <p>赤い単語は過去に間違ったことがある単語です</p>
-            <p>列の見出しをクリックすると表示/非表示を切り替えられます</p>
             <div class="scroll-area">
                 <table>
                     <thead>
@@ -63,14 +61,13 @@
                 <button onclick="startQuiz('practice')" style="background: #64748b;">練習モード</button>
                 <button onclick="startQuiz('exam')">本番モード</button>
             </div>
-            <p style="cursor:pointer; color:#64748b; font-size:0.8rem; margin-top: 15px;" onclick="showPage('page-setup')">戻る</p>
+            <p style="cursor:pointer; color:#64748b; font-size:0.8rem; margin-top:15px;" onclick="showPage('page-setup')">戻る</p>
         </div>
 
         <div id="page-quiz" class="page">
             <div class="progress">問題 <span id="currentNum">0</span> / <span id="totalNum">0</span></div>
             <div id="qJapanese" class="q-text"></div>
             <input type="text" id="userAnswer" placeholder="英語を入力してEnter" autocomplete="off" onkeypress="if(event.key==='Enter') checkAnswer()">
-            <p style="font-size:0.8rem; color:#64748b;">文章、固有名詞以外は小文字から始めてください。名詞は単数形、動詞は原形で回答してください。</p>
             <button onclick="checkAnswer()">回答する</button>
             <div id="feedback"></div>
         </div>
@@ -88,8 +85,8 @@
     </div>
 
     <div id="quiz-limit-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; justify-content:center; align-items:center;">
-        <div style="background:white; padding:30px; border-radius:20px; width:80%; max-width:400px; text-align:center; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
-            <h3 style="margin-top:0;">問題数の選択</h3>
+        <div style="background:white; padding:30px; border-radius:20px; width:80%; max-width:400px; text-align:center;">
+            <h3 style="margin-top:0;">練習問題数の選択</h3>
             <p id="modal-msg" style="color:#64748b; margin-bottom:20px;"></p>
             <button onclick="applyQuizLimit(10)" style="margin-bottom:10px;">ランダムに10問解く</button>
             <button onclick="applyQuizLimit('all')" style="background:#64748b; margin-bottom:10px;">全問解く</button>
@@ -141,57 +138,15 @@
             }).join('');
         }
 
-async function loadData() {
-    const tableInput = document.getElementById('tableName').value.trim();
-    const nicknameInput = document.getElementById('nickname').value.trim() || 'anonymous';
-    
-    if (!tableInput) return alert("テーブル名を入力してください");
-    localStorage.setItem('lastTableName', tableInput);
-    
-    if (!supabaseClient) {
-        try {
-            supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-        } catch (e) {
-            return alert("Supabaseの初期化に失敗しました。");
-        }
-    }
-
-    const btn = document.getElementById('loadBtn');
-    const loader = document.getElementById('loader');
-    btn.disabled = true;
-    loader.style.display = 'block';
-
-    try {
-        // 1. 本来の単語データ取得
-        const { data, error } = await supabaseClient.from(tableInput).select('*');
-        if (error) throw error;
-        if (!data || data.length === 0) throw new Error("データが空か、テーブル名が正しくありません。");
-        
-        allWords = data;
-        renderTable(tableInput);
-        showPage('page-list');
-
-        // --- 2. ログイン記録の送信 (追加箇所) ---
-        if (nicknameInput !== 'admin') {
-            // ログ送信に失敗しても学習を止めないよう、awaitせず、エラーも無視するスタイル
-            supabaseClient
-                .from('login_record')
-                .insert([{ 
-                    nickname: nicknameInput, 
-                    table_name: tableInput 
-                }])
-                .then(({ error }) => {
-                    if (error) console.error("Login Record Error:", error);
-                });
-        }
-
-    } catch (err) {
-        alert("エラー: " + err.message);
-    } finally {
-        btn.disabled = false;
-        loader.style.display = 'none';
-    }
-}
+        async function loadData() {
+            const tableInput = document.getElementById('tableName').value.trim();
+            const nicknameInput = document.getElementById('nickname').value.trim() || 'anonymous';
+            if (!tableInput) return alert("テーブル名を入力してください");
+            localStorage.setItem('lastTableName', tableInput);
+            
+            if (!supabaseClient) {
+                supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+            }
 
             const btn = document.getElementById('loadBtn');
             const loader = document.getElementById('loader');
@@ -201,10 +156,14 @@ async function loadData() {
             try {
                 const { data, error } = await supabaseClient.from(tableInput).select('*');
                 if (error) throw error;
-                if (!data || data.length === 0) throw new Error("データが空か、テーブル名が正しくありません。");
                 allWords = data;
                 renderTable(tableInput);
                 showPage('page-list');
+
+                // login_record送信 (admin除外)
+                if (nicknameInput !== 'admin') {
+                    supabaseClient.from('login_record').insert([{ nickname: nicknameInput, table_name: tableInput }]).then();
+                }
             } catch (err) {
                 alert("エラー: " + err.message);
             } finally {
@@ -213,85 +172,62 @@ async function loadData() {
             }
         }
 
-async function startQuiz(mode) {
-    if (allWords.length === 0) return alert("データがありません");
-    const currentTable = localStorage.getItem('lastTableName');
+        async function startQuiz(mode) {
+            if (allWords.length === 0) return alert("データがありません");
+            const currentTable = localStorage.getItem('lastTableName');
 
-    // --- 本番モードのパスワード照会 & 範囲絞り込み ---
-    if (mode === 'exam') {
-        const inputPass = prompt("本番モード用パスワードを入力してください:");
-        if (!inputPass) return;
+            if (mode === 'exam') {
+                const inputPass = prompt("本番モード用パスワードを入力してください:");
+                if (!inputPass) return;
+                const { data, error } = await supabaseClient.from('table_passwords').select('password').eq('table_name', currentTable).single();
+                if (error || !data || inputPass !== data.password) {
+                    return alert("パスワードが正しくないか、設定されていません。");
+                }
 
-        // パスワード確認
-        const { data: passData, error: passError } = await supabaseClient
-            .from('table_passwords')
-            .select('password')
-            .eq('table_name', currentTable)
-            .single();
-
-        if (passError || !passData || inputPass !== passData.password) {
-            return alert("パスワードが正しくないか、設定されていません。");
-        }
-
-        // --- 本番モード専用：test列がTrueのものだけを抽出 ---
-        // 11問以上ある場合のみtest列を参照するロジック
-        let examWords = [];
-        if (allWords.length >= 11) {
-            examWords = allWords.filter(w => w.test === true);
-            if (examWords.length === 0) {
-                return alert("本番用の問題（test列がTrueのもの）が設定されていません。");
+                // 本番モード：test列がtrueのものだけ
+                let examWords = (allWords.length >= 11) ? allWords.filter(w => w.test === true) : [...allWords];
+                if (examWords.length === 0) return alert("本番用の問題(test列)が設定されていません。");
+                
+                pendingQuizMode = 'exam';
+                startExecutingQuiz(examWords);
+            } else {
+                // 練習モード
+                pendingQuizMode = 'practice';
+                if (allWords.length >= 11) {
+                    document.getElementById('modal-msg').innerText = `全 ${allWords.length} 問あります。練習範囲を選んでください。`;
+                    document.getElementById('quiz-limit-modal').style.display = 'flex';
+                } else {
+                    applyQuizLimit('all');
+                }
             }
-        } else {
-            // 10問以下のテーブルは全問が対象
-            examWords = [...allWords];
         }
-
-        // 本番モードは選択肢を出さずに即開始
-        pendingQuizMode = 'exam';
-        startExecutingQuiz(examWords); 
-        return; 
-    }
-
-    // --- 練習モード（practice）の場合 ---
-    pendingQuizMode = 'practice'; 
-    if (allWords.length >= 11) {
-        // 11問以上なら「10問 vs 全問」のGUIを表示
-        document.getElementById('modal-msg').innerText = `全 ${allWords.length} 問あります。練習する範囲を選んでください。`;
-        document.getElementById('quiz-limit-modal').style.display = 'flex';
-    } else {
-        // 10問以下なら即開始
-        applyQuizLimit('all');
-    }
-}
 
         function closeQuizModal() {
             document.getElementById('quiz-limit-modal').style.display = 'none';
         }
 
-function applyQuizLimit(limit) {
-    closeQuizModal();
-    let tempQueue = [...allWords].sort(() => Math.random() - 0.5);
-    if (limit === 10) tempQueue = tempQueue.slice(0, 10);
-    startExecutingQuiz(tempQueue);
-}
+        function applyQuizLimit(limit) {
+            closeQuizModal();
+            let tempQueue = [...allWords];
+            if (limit === 10) {
+                tempQueue = tempQueue.sort(() => Math.random() - 0.5).slice(0, 10);
+            }
+            startExecutingQuiz(tempQueue);
+        }
 
-    function startExecutingQuiz(wordsArray) {
-    // シャッフルしてセット
-    quizQueue = [...wordsArray].sort(() => Math.random() - 0.5);
-    currentMode = pendingQuizMode;
-    totalQuestions = quizQueue.length;
-    correctCount = 0;
-    document.getElementById('totalNum').innerText = totalQuestions;
-    showPage('page-quiz');
-    nextQuestion();
-}
+        function startExecutingQuiz(wordsArray) {
+            quizQueue = [...wordsArray].sort(() => Math.random() - 0.5);
+            currentMode = pendingQuizMode;
+            totalQuestions = quizQueue.length;
+            correctCount = 0;
+            document.getElementById('totalNum').innerText = totalQuestions;
+            showPage('page-quiz');
+            nextQuestion();
+        }
 
         function nextQuestion() {
             isProcessing = false; 
-            if (quizQueue.length === 0) {
-                showResult();
-                return;
-            }
+            if (quizQueue.length === 0) { showResult(); return; }
             currentWord = quizQueue.shift();
             document.getElementById('currentNum').innerText = totalQuestions - quizQueue.length;
             document.getElementById('qJapanese').innerText = currentWord.japanese;
@@ -332,7 +268,7 @@ function applyQuizLimit(limit) {
             const nickname = document.getElementById('nickname').value.trim() || 'anonymous';
             const currentTable = localStorage.getItem('lastTableName');
             document.getElementById('finalScore').innerText = percent + "%";
-            document.getElementById('resultDetail').innerText = (currentMode === 'exam' ? `[本番: ${nickname}] ` : "[練習] ") + `${totalQuestions}問中 ${correctCount}問正解でした。`;
+            document.getElementById('resultDetail').innerText = (currentMode === 'exam' ? `[本番: ${nickname}] ` : "[練習] ") + `${totalQuestions}問中 ${correctCount}問正解。`;
             
             if (currentMode === 'exam') {
                 await supabaseClient.from('quiz_results').insert([{ table_name: currentTable, nickname: nickname, score_percent: percent, correct_count: correctCount, total_count: totalQuestions }]);
@@ -344,17 +280,13 @@ function applyQuizLimit(limit) {
         }
 
         async function updateRanking(tableName) {
-            const { data } = await supabaseClient.from('quiz_results').select('nickname, score_percent, created_at').eq('table_name', tableName).order('score_percent', { ascending: false }).order('created_at', { ascending: true }).limit(10);
+            const { data } = await supabaseClient.from('quiz_results').select('nickname, score_percent, created_at').eq('table_name', tableName).order('score_percent', { ascending: false }).order('created_at', { ascending: true }).limit(5);
             if (data && data.length > 0) {
-                const rankingList = document.getElementById('rankingList');
                 let html = "";
-                let lastScore = -1, rank = 0;
-                data.slice(0, 5).forEach((res, i) => {
-                    if (res.score_percent !== lastScore) rank = i + 1;
-                    html += `<div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px dashed #cbd5e1;"><span>${rank}位: ${res.nickname}</span><b>${res.score_percent}%</b></div>`;
-                    lastScore = res.score_percent;
+                data.forEach((res, i) => {
+                    html += `<div style="display: flex; justify-content: space-between; border-bottom: 1px dashed #ccc; padding: 4px 0;"><span>${i+1}位: ${res.nickname}</span><b>${res.score_percent}%</b></div>`;
                 });
-                rankingList.innerHTML = html;
+                document.getElementById('rankingList').innerHTML = html;
                 document.getElementById('rankingArea').style.display = 'block';
             }
         }
