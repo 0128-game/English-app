@@ -71,9 +71,9 @@
                     <tbody id="wordList"></tbody>
                 </table>
             </div>
-            <div style="display: flex; gap: 10px; margin-top: 20px;">
-    <button onclick="startQuiz('practice')" style="background: #64748b;">練習モード (記録なし)</button>
-    <button onclick="startQuiz('exam')">本番モード (結果を保存)</button>
+<div style="display: flex; gap: 10px; margin-top: 20px;">
+    <button onclick="prepareQuiz('practice')" style="background: #64748b;">練習モード</button>
+    <button onclick="prepareQuiz('exam')">本番モード</button>
 </div>
     <p style="cursor:pointer; color:#64748b; font-size:0.8rem;" onclick="showPage('page-setup')">戻る</p>
         </div>
@@ -198,42 +198,84 @@ let hideEnglish = false;
         }
     }
 
+    async function prepareQuiz(mode) {
+    if (allWords.length === 0) return alert("データがありません");
+    
+    // 本番モードの場合のみパスワードチェック
+    if (mode === 'exam') {
+        const currentTable = localStorage.getItem('lastTableName');
+        const inputPass = prompt("本番モード用パスワードを入力してください:");
+        if (!inputPass) return;
+
+        const { data, error } = await supabaseClient
+            .from('table_passwords')
+            .select('password')
+            .eq('table_name', currentTable)
+            .single();
+
+        if (error || !data || inputPass !== data.password) {
+            alert("パスワードが正しくないか、設定されていません。");
+            return;
+        }
+    }
+
+    // 問題数を選択させる
+    let countChoice = "all";
+    if (allWords.length >= 11) {
+        const choice = confirm(`全 ${allWords.length} 問あります。\n「OK」で 10問限定、「キャンセル」で 全問出題 します。`);
+        countChoice = choice ? 10 : "all";
+    }
+
+    startQuiz(mode, countChoice);
+}
+        
     // 2. クイズ開始（シャッフル）
 async function startQuiz(mode) {
-        if (allWords.length === 0) return alert("データがありません");
-        
-        const currentTable = localStorage.getItem('lastTableName');
+    if (allWords.length === 0) return alert("データがありません");
+    
+    const currentTable = localStorage.getItem('lastTableName');
 
-        // --- 本番モードのパスワード照会処理 ---
-        if (mode === 'exam') {
-            const inputPass = prompt("本番モード用パスワードを入力してください:");
-            if (!inputPass) return;
+    // --- 本番モードのパスワード照会処理 ---
+    if (mode === 'exam') {
+        const inputPass = prompt("本番モード用パスワードを入力してください:");
+        if (!inputPass) return;
 
-            const { data, error } = await supabaseClient
-                .from('table_passwords')
-                .select('password')
-                .eq('table_name', currentTable)
-                .single();
+        const { data, error } = await supabaseClient
+            .from('table_passwords')
+            .select('password')
+            .eq('table_name', currentTable)
+            .single();
 
-            if (error || !data) {
-                alert("このテーブルには本番モードの設定がありません。");
-                return;
-            }
-
-            if (inputPass !== data.password) {
-                alert("パスワードが正しくありません。");
-                return;
-            }
+        if (error || !data) {
+            alert("このテーブルには本番モードの設定がありません。");
+            return;
         }
 
-        currentMode = mode;
-        quizQueue = [...allWords].sort(() => Math.random() - 0.5);
-        totalQuestions = quizQueue.length;
-        correctCount = 0;
-        document.getElementById('totalNum').innerText = totalQuestions;
-        showPage('page-quiz');
-        nextQuestion();
+        if (inputPass !== data.password) {
+            alert("パスワードが正しくありません。");
+            return;
+        }
     }
+
+    // --- 追加箇所：問題数の選択 ---
+    let tempQueue = [...allWords].sort(() => Math.random() - 0.5);
+    
+    if (tempQueue.length >= 11) {
+        const isTen = confirm(`全 ${tempQueue.length} 問あります。\n「OK」で 10問限定、「キャンセル」で 全問出題 します。`);
+        if (isTen) {
+            tempQueue = tempQueue.slice(0, 10);
+        }
+    }
+
+    // --- 既存の機能を維持 ---
+    currentMode = mode;
+    quizQueue = tempQueue; // 選択された問題リストをセット
+    totalQuestions = quizQueue.length;
+    correctCount = 0;
+    document.getElementById('totalNum').innerText = totalQuestions;
+    showPage('page-quiz');
+    nextQuestion();
+}
     // 3. 次の問題
 function nextQuestion() {
     // ★追加：フラグを解除して回答可能にする
