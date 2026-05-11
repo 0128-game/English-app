@@ -75,6 +75,17 @@
     <button onclick="prepareQuiz('practice')" style="background: #64748b;">練習モード</button>
     <button onclick="prepareQuiz('exam')">本番モード</button>
 </div>
+
+    <div id="quiz-limit-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; justify-content:center; align-items:center;">
+    <div style="background:white; padding:30px; border-radius:20px; width:80%; max-width:400px; text-align:center; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
+        <h3 id="modal-title" style="margin-top:0;">問題数の選択</h3>
+        <p id="modal-msg" style="color:#64748b; margin-bottom:20px;"></p>
+        <button onclick="applyQuizLimit(10)" style="margin-bottom:10px;">ランダムに10問解く</button>
+        <button onclick="applyQuizLimit('all')" style="background:#64748b; margin-bottom:10px;">全問解く</button>
+        <button onclick="closeQuizModal()" style="background:none; color:#94a3b8; border:none; text-decoration:underline; font-size:0.9rem; cursor:pointer;">キャンセルして戻る</button>
+    </div>
+</div>
+    
     <p style="cursor:pointer; color:#64748b; font-size:0.8rem;" onclick="showPage('page-setup')">戻る</p>
         </div>
         <div id="page-quiz" class="page">
@@ -112,6 +123,7 @@
     let currentWord = null;
     let currentMode = 'practice';
     let isProcessing = false; // ★追加：連打防止フラグ
+    let pendingQuizMode = '';
 
             // ページ切り替え関数
 function showPage(pageId) {
@@ -235,7 +247,7 @@ async function startQuiz(mode) {
     
     const currentTable = localStorage.getItem('lastTableName');
 
-    // --- 本番モードのパスワード照会処理 ---
+    // --- 本番モードのパスワード照会処理 (既存機能そのまま) ---
     if (mode === 'exam') {
         const inputPass = prompt("本番モード用パスワードを入力してください:");
         if (!inputPass) return;
@@ -257,25 +269,44 @@ async function startQuiz(mode) {
         }
     }
 
-    // --- 追加箇所：問題数の選択 ---
+    // --- 認証突破後、モーダルを表示する ---
+    pendingQuizMode = mode; 
+    if (allWords.length >= 11) {
+        document.getElementById('modal-msg').innerText = `全 ${allWords.length} 問見つかりました。出題範囲を選んでください。`;
+        document.getElementById('quiz-limit-modal').style.display = 'flex';
+    } else {
+        // 10問以下の場合は選択なしで即開始
+        applyQuizLimit('all');
+    }
+}
+
+// モーダルを閉じる関数
+function closeQuizModal() {
+    document.getElementById('quiz-limit-modal').style.display = 'none';
+}
+
+// 実際にクイズの準備をして画面を切り替える関数
+function applyQuizLimit(limit) {
+    closeQuizModal(); // モーダルを閉じる
+    
+    // 単語をシャッフル
     let tempQueue = [...allWords].sort(() => Math.random() - 0.5);
     
-    if (tempQueue.length >= 11) {
-        const isTen = confirm(`全 ${tempQueue.length} 問あります。\n「OK」で 10問限定、「キャンセル」で 全問出題 します。`);
-        if (isTen) {
-            tempQueue = tempQueue.slice(0, 10);
-        }
+    // モーダルで「10問」が選ばれたら切り出す
+    if (limit === 10) {
+        tempQueue = tempQueue.slice(0, 10);
     }
 
-    // --- 既存の機能を維持 ---
-    currentMode = mode;
-    quizQueue = tempQueue; // 選択された問題リストをセット
+    // --- 既存の「クイズ開始処理」を実行 ---
+    currentMode = pendingQuizMode;
+    quizQueue = tempQueue;
     totalQuestions = quizQueue.length;
     correctCount = 0;
     document.getElementById('totalNum').innerText = totalQuestions;
     showPage('page-quiz');
     nextQuestion();
 }
+
     // 3. 次の問題
 function nextQuestion() {
     // ★追加：フラグを解除して回答可能にする
