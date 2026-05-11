@@ -9,38 +9,26 @@
         :root { --primary: #3ecf8e; --bg: #f8fafc; --text: #1e293b; }
         body { font-family: 'Helvetica Neue', Arial, sans-serif; background-color: var(--bg); color: var(--text); margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
         .container { background: white; width: 90%; max-width: 600px; padding: 40px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); text-align: center; }
-        
-        /* セクション管理 */
         .page { display: none; }
         .page.active { display: block; animation: fadeIn 0.5s ease; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-
         h2 { margin-top: 0; color: #333; }
         input { width: 100%; padding: 12px; margin: 15px 0; border: 2px solid #e2e8f0; border-radius: 10px; box-sizing: border-box; font-size: 1rem; }
         button { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; font-size: 1rem; transition: 0.2s; }
         button:disabled { background: #ccc; cursor: not-allowed; }
-        
-        /* ローディング */
         #loader { display: none; margin: 10px 0; color: var(--primary); font-weight: bold; }
         .spinner { display: inline-block; width: 20px; height: 20px; border: 3px solid rgba(62,207,142,.3); border-radius: 50%; border-top-color: var(--primary); animation: spin 1s ease-in-out infinite; vertical-align: middle; margin-right: 8px; }
         @keyframes spin { to { transform: rotate(360deg); } }
-
-        /* 一覧表示 */
         .scroll-area { max-height: 300px; overflow-y: auto; border: 1px solid #eee; margin: 20px 0; border-radius: 10px; }
         table { width: 100%; border-collapse: collapse; }
         td, th { padding: 12px; border-bottom: 1px solid #f1f5f9; text-align: left; }
-
-        /* クイズ */
         .q-text { font-size: 2rem; margin: 30px 0; font-weight: bold; color: #1e293b; }
         .progress { font-size: 0.9rem; color: #64748b; margin-bottom: 10px; }
         #feedback { min-height: 30px; margin-top: 15px; font-weight: bold; }
-        
-        /* 結果画面 */
         .score { font-size: 3rem; color: var(--primary); font-weight: bold; margin: 20px 0; }
-        /* 修正箇所：間違えた単語の強調スタイル */
         .wrong-word { background-color: #ffebee !important; }
-        /* 修正箇所：完全に非表示にする（背景色と同じにして見えなくする） */
         .hidden-col { visibility: hidden; }
+        .clickable { cursor: pointer; user-select: none; }
     </style>
 </head>
 <body>
@@ -49,14 +37,14 @@
         <div id="page-setup" class="page active">
             <h2>VocaClear - 英単語表&テスト</h2>
             <p>ニックネームを入力してください</p>
-            <p>コードを入力してください</p>
             <input type="text" id="nickname" placeholder="ニックネームを入力..." maxlength="15">   
+            <p>コードを入力してください</p>
             <input type="text" id="tableName" placeholder="コードを入力...">
             <button id="loadBtn" onclick="loadData()">データを取得する</button>
             <div id="loader"><span class="spinner"></span>データ取得中...</div>
         </div>
 
-<div id="page-list" class="page">
+        <div id="page-list" class="page">
             <h2>単語一覧</h2>
             <p>赤い単語は過去に間違ったことがある単語です</p>
             <p>列の見出しをクリックすると表示/非表示を切り替えられます</p>
@@ -71,352 +59,233 @@
                     <tbody id="wordList"></tbody>
                 </table>
             </div>
-<div style="display: flex; gap: 10px; margin-top: 20px;">
-    <button onclick="prepareQuiz('practice')" style="background: #64748b;">練習モード</button>
-    <button onclick="prepareQuiz('exam')">本番モード</button>
-</div>
-
-    <div id="quiz-limit-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; justify-content:center; align-items:center;">
-    <div style="background:white; padding:30px; border-radius:20px; width:80%; max-width:400px; text-align:center; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
-        <h3 id="modal-title" style="margin-top:0;">問題数の選択</h3>
-        <p id="modal-msg" style="color:#64748b; margin-bottom:20px;"></p>
-        <button onclick="applyQuizLimit(10)" style="margin-bottom:10px;">ランダムに10問解く</button>
-        <button onclick="applyQuizLimit('all')" style="background:#64748b; margin-bottom:10px;">全問解く</button>
-        <button onclick="closeQuizModal()" style="background:none; color:#94a3b8; border:none; text-decoration:underline; font-size:0.9rem; cursor:pointer;">キャンセルして戻る</button>
-    </div>
-</div>
-    
-    <p style="cursor:pointer; color:#64748b; font-size:0.8rem;" onclick="showPage('page-setup')">戻る</p>
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button onclick="startQuiz('practice')" style="background: #64748b;">練習モード</button>
+                <button onclick="startQuiz('exam')">本番モード</button>
+            </div>
+            <p style="cursor:pointer; color:#64748b; font-size:0.8rem; margin-top: 15px;" onclick="showPage('page-setup')">戻る</p>
         </div>
+
         <div id="page-quiz" class="page">
             <div class="progress">問題 <span id="currentNum">0</span> / <span id="totalNum">0</span></div>
             <div id="qJapanese" class="q-text"></div>
             <input type="text" id="userAnswer" placeholder="英語を入力してEnter" autocomplete="off" onkeypress="if(event.key==='Enter') checkAnswer()">
-            <p>文章、固有名詞以外は小文字から始めてください</p>
-            <p>特別な指示がない場合は名詞は単数形、動詞は原形で回答してください</p>
+            <p style="font-size:0.8rem; color:#64748b;">文章、固有名詞以外は小文字から始めてください。名詞は単数形、動詞は原形で回答してください。</p>
             <button onclick="checkAnswer()">回答する</button>
             <div id="feedback"></div>
         </div>
 
-      <div id="page-result" class="page">
-    <h2>テスト終了！</h2>
-    <div class="score" id="finalScore">0%</div>
-    <p id="resultDetail"></p>
-    
-    <div id="rankingArea" style="margin: 20px 0; text-align: left; background: #f1f5f9; padding: 15px; border-radius: 10px; display: none;">
-        <h4 style="margin: 0 0 10px 0;">🏆 暫定ランキング (TOP 5)</h4>
-        <div id="rankingList" style="font-size: 0.9rem;"></div>
+        <div id="page-result" class="page">
+            <h2>テスト終了！</h2>
+            <div class="score" id="finalScore">0%</div>
+            <p id="resultDetail"></p>
+            <div id="rankingArea" style="margin: 20px 0; text-align: left; background: #f1f5f9; padding: 15px; border-radius: 10px; display: none;">
+                <h4 style="margin: 0 0 10px 0;">🏆 暫定ランキング (TOP 5)</h4>
+                <div id="rankingList" style="font-size: 0.9rem;"></div>
+            </div>
+            <button onclick="showPage('page-list')">単語一覧に戻る</button>
+        </div>
     </div>
 
-    <button onclick="showPage('page-list')">単語一覧に戻る</button>
-</div>
+    <div id="quiz-limit-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; justify-content:center; align-items:center;">
+        <div style="background:white; padding:30px; border-radius:20px; width:80%; max-width:400px; text-align:center; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
+            <h3 style="margin-top:0;">問題数の選択</h3>
+            <p id="modal-msg" style="color:#64748b; margin-bottom:20px;"></p>
+            <button onclick="applyQuizLimit(10)" style="margin-bottom:10px;">ランダムに10問解く</button>
+            <button onclick="applyQuizLimit('all')" style="background:#64748b; margin-bottom:10px;">全問解く</button>
+            <button onclick="closeQuizModal()" style="background:none; color:#94a3b8; border:none; text-decoration:underline; font-size:0.9rem; cursor:pointer;">キャンセルして戻る</button>
+        </div>
     </div>
 
     <script>
         const SUPABASE_URL = 'https://vcbhwpahrzdjbakflwvd.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZjYmh3cGFocnpkamJha2Zsd3ZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY5NTEzMzEsImV4cCI6MjA5MjUyNzMzMX0.Uv71jxtuVhoofw7Z5daMB7JhGncUNQyRslTuGhl_KI0';
-    let supabaseClient; // ここでは宣言だけ
-    let allWords = [];
-    let quizQueue = [];
-    let correctCount = 0;
-    let totalQuestions = 0;
-    let currentWord = null;
-    let currentMode = 'practice';
-    let isProcessing = false; // ★追加：連打防止フラグ
-    let pendingQuizMode = '';
+        
+        let supabaseClient;
+        let allWords = [];
+        let quizQueue = [];
+        let correctCount = 0;
+        let totalQuestions = 0;
+        let currentWord = null;
+        let currentMode = 'practice';
+        let isProcessing = false; 
+        let pendingQuizMode = '';
+        let hideEnglish = false;
+        let hideJapanese = false;
 
-            // ページ切り替え関数
-function showPage(pageId) {
-        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-        document.getElementById(pageId).classList.add('active');
+        function showPage(pageId) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById(pageId).classList.add('active');
+            if (pageId === 'page-list') {
+                const currentTable = localStorage.getItem('lastTableName');
+                if (currentTable && allWords.length > 0) renderTable(currentTable);
+            }
+        }
 
-        // 一覧ページを表示する時は、常にテーブルを再描画して最新の「赤色」状態を反映する
-        if (pageId === 'page-list') {
+        function toggleHide(type) {
+            if (type === 'en') hideEnglish = !hideEnglish;
+            if (type === 'jp') hideJapanese = !hideJapanese;
             const currentTable = localStorage.getItem('lastTableName');
-            if (currentTable && allWords.length > 0) {
-                renderTable(currentTable);
-            }
-        }
-    }
-let hideEnglish = false;
-    let hideJapanese = false;
-
-    // 表示・非表示を切り替える関数
-    function toggleHide(type) {
-        if (type === 'en') hideEnglish = !hideEnglish;
-        if (type === 'jp') hideJapanese = !hideJapanese;
-        
-        const currentTable = localStorage.getItem('lastTableName');
-        if (currentTable) renderTable(currentTable); 
-    }
-
-    // 単語一覧を描画する関数
-    function renderTable(tableName) {
-        const list = document.getElementById('wordList');
-        const wrongData = JSON.parse(localStorage.getItem('wrong_data_' + tableName) || "{}");
-
-        list.innerHTML = allWords.map(w => {
-            const isWrong = wrongData[w.english] !== undefined;
-            return `<tr class="${isWrong ? 'wrong-word' : ''}">
-                        <td class="${hideEnglish ? 'hidden-col' : ''}"><b>${w.english}</b></td>
-                        <td class="${hideJapanese ? 'hidden-col' : ''}">${w.japanese}</td>
-                    </tr>`;
-        }).join('');
-    }
-    // 1. データの読み込み
-    async function loadData() {
-        const tableInput = document.getElementById('tableName').value.trim();
-        if (!tableInput) return alert("テーブル名を入力してください");
-// --- 修正箇所：テーブル名を保存 ---
-        localStorage.setItem('lastTableName', tableInput);
-        
-        // --- 修正ポイント：ここで初期化を行う ---
-        if (!supabaseClient) {
-            try {
-                // window.supabase または exports.supabase を確認して作成
-                const lib = window.supabase || exports.supabase;
-                supabaseClient = lib.createClient(SUPABASE_URL, SUPABASE_KEY);
-            } catch (e) {
-                return alert("Supabaseライブラリの初期化に失敗しました。URLやKeyを確認してください。");
-            }
+            if (currentTable) renderTable(currentTable); 
         }
 
-        const btn = document.getElementById('loadBtn');
-        const loader = document.getElementById('loader');
-
-        btn.disabled = true;
-        loader.style.display = 'block';
-
-        try {
-            const { data, error } = await supabaseClient.from(tableInput).select('*');
-            if (error) throw error;
-            if (!data || data.length === 0) throw new Error("データが空か、テーブル名が正しくありません。");
-
-            allWords = data;
-            
+        function renderTable(tableName) {
             const list = document.getElementById('wordList');
-            list.innerHTML = allWords.map(w => `<tr><td><b>${w.english}</b></td><td>${w.japanese}</td></tr>`).join('');
+            const wrongData = JSON.parse(localStorage.getItem('wrong_data_' + tableName) || "{}");
+            list.innerHTML = allWords.map(w => {
+                const isWrong = wrongData[w.english] !== undefined;
+                return `<tr class="${isWrong ? 'wrong-word' : ''}">
+                    <td class="${hideEnglish ? 'hidden-col' : ''}"><b>${w.english}</b></td>
+                    <td class="${hideJapanese ? 'hidden-col' : ''}">${w.japanese}</td>
+                </tr>`;
+            }).join('');
+        }
 
-// --- 修正箇所：レンダリング関数の呼び出し ---
-            renderTable(tableInput);
+        async function loadData() {
+            const tableInput = document.getElementById('tableName').value.trim();
+            if (!tableInput) return alert("テーブル名を入力してください");
+            localStorage.setItem('lastTableName', tableInput);
             
-            showPage('page-list');
-        } catch (err) {
-            alert("エラー: " + err.message);
-            console.error(err);
-        } finally {
-            btn.disabled = false;
-            loader.style.display = 'none';
-        }
-    }
-
-
-    // 問題数を選択させる
-    let countChoice = "all";
-    if (allWords.length >= 11) {
-        const choice = confirm(`全 ${allWords.length} 問あります。\n「OK」で 10問限定、「キャンセル」で 全問出題 します。`);
-        countChoice = choice ? 10 : "all";
-    }
-
-    startQuiz(mode, countChoice);
-}
-        
-    // 2. クイズ開始（シャッフル）
-async function startQuiz(mode) {
-    if (allWords.length === 0) return alert("データがありません");
-    
-    const currentTable = localStorage.getItem('lastTableName');
-
-    // --- 本番モードのパスワード照会処理 (既存機能そのまま) ---
-    if (mode === 'exam') {
-        const inputPass = prompt("本番モード用パスワードを入力してください:");
-        if (!inputPass) return;
-
-        const { data, error } = await supabaseClient
-            .from('table_passwords')
-            .select('password')
-            .eq('table_name', currentTable)
-            .single();
-
-        if (error || !data) {
-            alert("このテーブルには本番モードの設定がありません。");
-            return;
-        }
-
-        if (inputPass !== data.password) {
-            alert("パスワードが正しくありません。");
-            return;
-        }
-    }
-
-    // --- 認証突破後、モーダルを表示する ---
-    pendingQuizMode = mode; 
-    if (allWords.length >= 11) {
-        document.getElementById('modal-msg').innerText = `全 ${allWords.length} 問見つかりました。出題範囲を選んでください。`;
-        document.getElementById('quiz-limit-modal').style.display = 'flex';
-    } else {
-        // 10問以下の場合は選択なしで即開始
-        applyQuizLimit('all');
-    }
-}
-
-// モーダルを閉じる関数
-function closeQuizModal() {
-    document.getElementById('quiz-limit-modal').style.display = 'none';
-}
-
-// 実際にクイズの準備をして画面を切り替える関数
-function applyQuizLimit(limit) {
-    closeQuizModal(); // モーダルを閉じる
-    
-    // 単語をシャッフル
-    let tempQueue = [...allWords].sort(() => Math.random() - 0.5);
-    
-    // モーダルで「10問」が選ばれたら切り出す
-    if (limit === 10) {
-        tempQueue = tempQueue.slice(0, 10);
-    }
-
-    // --- 既存の「クイズ開始処理」を実行 ---
-    currentMode = pendingQuizMode;
-    quizQueue = tempQueue;
-    totalQuestions = quizQueue.length;
-    correctCount = 0;
-    document.getElementById('totalNum').innerText = totalQuestions;
-    showPage('page-quiz');
-    nextQuestion();
-}
-
-    // 3. 次の問題
-function nextQuestion() {
-    // ★追加：フラグを解除して回答可能にする
-    isProcessing = false;
-
-    if (quizQueue.length === 0) {
-        showResult();
-        return;
-    }
-    // ...以下、既存のコードと同じ
-    currentWord = quizQueue.shift();
-    document.getElementById('currentNum').innerText = totalQuestions - quizQueue.length;
-    document.getElementById('qJapanese').innerText = currentWord.japanese;
-    document.getElementById('userAnswer').value = '';
-    document.getElementById('userAnswer').focus();
-    document.getElementById('feedback').innerText = '';
-}
-
-    // 4. 正誤判定
-    function checkAnswer() {
-    // ★追加：処理中なら何もしない
-    if (isProcessing) return;
-
-    const ans = document.getElementById('userAnswer').value.trim();
-    const fb = document.getElementById('feedback');
-    const currentTable = localStorage.getItem('lastTableName');
-    
-    // 入力が空の場合は何もしない（お好みで）
-    if (!ans) return;
-
-    // ★追加：処理開始
-    isProcessing = true;
-
-    let wrongData = JSON.parse(localStorage.getItem('wrong_data_' + currentTable) || "{}");
-    
-    if (ans === currentWord.english) {
-        correctCount++;
-        fb.innerHTML = "<span style='color:var(--primary)'>✅ 正解！</span>";
-        
-        if (wrongData[currentWord.english] !== undefined) {
-            wrongData[currentWord.english]++;
-            if (wrongData[currentWord.english] >= 3) {
-                delete wrongData[currentWord.english];
-            }
-            localStorage.setItem('wrong_data_' + currentTable, JSON.stringify(wrongData));
-        }
-        setTimeout(nextQuestion, 800);
-        
-    } else {
-        wrongData[currentWord.english] = 0; 
-        localStorage.setItem('wrong_data_' + currentTable, JSON.stringify(wrongData));
-        
-        fb.innerHTML = `<span style='color:#e74c3c'>❌ 不正解... 答: ${currentWord.english}</span>`;
-        setTimeout(nextQuestion, 1800);
-    }
-}
-
-    // 5. 結果表示
-async function showResult() {
-    const percent = Math.round((correctCount / totalQuestions) * 100);
-    const nickname = document.getElementById('nickname').value.trim() || 'anonymous';
-    const currentTable = localStorage.getItem('lastTableName');
-
-    document.getElementById('finalScore').innerText = percent + "%";
-    document.getElementById('resultDetail').innerText = 
-        (currentMode === 'exam' ? `[本番: ${nickname}] ` : "[練習] ") + 
-        `${totalQuestions}問中 ${correctCount}問正解でした。`;
-
-    if (currentMode === 'exam') {
-        // 1. 結果を保存
-        const { error: insertError } = await supabaseClient
-            .from('quiz_results')
-            .insert([{ 
-                table_name: currentTable, 
-                nickname: nickname,
-                score_percent: percent, 
-                correct_count: correctCount, 
-                total_count: totalQuestions 
-            }]);
-
-        if (!insertError) {
-            // 2. ランキングを取得して表示
-            await updateRanking(currentTable);
-        }
-    } else {
-        document.getElementById('rankingArea').style.display = 'none';
-    }
-
-    showPage('page-result');
-}
-
-async function updateRanking(tableName) {
-        const { data, error } = await supabaseClient
-            .from('quiz_results')
-            .select('nickname, score_percent, created_at')
-            .eq('table_name', tableName)
-            .order('score_percent', { ascending: false })
-            .order('created_at', { ascending: true })
-            .limit(10); // 念のため10位まで取得して計算
-
-        if (data && data.length > 0) {
-            const rankingList = document.getElementById('rankingList');
-            let html = "";
-            let lastScore = -1;
-            let rank = 0;
-            let tieCount = 0;
-
-            data.slice(0, 5).forEach((res, i) => {
-                // スコアが前と同じなら順位を据え置き、違うなら現在のカウントを順位にする
-                if (res.score_percent !== lastScore) {
-                    rank = i + 1;
-                    tieCount = data.filter(d => d.score_percent === res.score_percent).length;
+            if (!supabaseClient) {
+                try {
+                    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+                } catch (e) {
+                    return alert("Supabaseの初期化に失敗しました。");
                 }
-                
-                const isTie = tieCount > 1;
-                const rankText = isTie ? `${rank}位タイ` : `${rank}位`;
+            }
 
-                html += `
-                    <div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px dashed #cbd5e1;">
-                        <span>${rankText}: ${res.nickname}</span>
-                        <b>${res.score_percent}%</b>
-                    </div>`;
-                
-                lastScore = res.score_percent;
-            });
+            const btn = document.getElementById('loadBtn');
+            const loader = document.getElementById('loader');
+            btn.disabled = true;
+            loader.style.display = 'block';
 
-            rankingList.innerHTML = html;
-            document.getElementById('rankingArea').style.display = 'block';
+            try {
+                const { data, error } = await supabaseClient.from(tableInput).select('*');
+                if (error) throw error;
+                if (!data || data.length === 0) throw new Error("データが空か、テーブル名が正しくありません。");
+                allWords = data;
+                renderTable(tableInput);
+                showPage('page-list');
+            } catch (err) {
+                alert("エラー: " + err.message);
+            } finally {
+                btn.disabled = false;
+                loader.style.display = 'none';
+            }
         }
-    }
+
+        async function startQuiz(mode) {
+            if (allWords.length === 0) return alert("データがありません");
+            const currentTable = localStorage.getItem('lastTableName');
+
+            if (mode === 'exam') {
+                const inputPass = prompt("本番モード用パスワードを入力してください:");
+                if (!inputPass) return;
+                const { data, error } = await supabaseClient.from('table_passwords').select('password').eq('table_name', currentTable).single();
+                if (error || !data || inputPass !== data.password) {
+                    return alert("パスワードが正しくないか、設定されていません。");
+                }
+            }
+
+            pendingQuizMode = mode; 
+            if (allWords.length >= 11) {
+                document.getElementById('modal-msg').innerText = `全 ${allWords.length} 問見つかりました。出題範囲を選んでください。`;
+                document.getElementById('quiz-limit-modal').style.display = 'flex';
+            } else {
+                applyQuizLimit('all');
+            }
+        }
+
+        function closeQuizModal() {
+            document.getElementById('quiz-limit-modal').style.display = 'none';
+        }
+
+        function applyQuizLimit(limit) {
+            closeQuizModal();
+            let tempQueue = [...allWords].sort(() => Math.random() - 0.5);
+            if (limit === 10) tempQueue = tempQueue.slice(0, 10);
+
+            currentMode = pendingQuizMode;
+            quizQueue = tempQueue;
+            totalQuestions = quizQueue.length;
+            correctCount = 0;
+            document.getElementById('totalNum').innerText = totalQuestions;
+            showPage('page-quiz');
+            nextQuestion();
+        }
+
+        function nextQuestion() {
+            isProcessing = false; 
+            if (quizQueue.length === 0) {
+                showResult();
+                return;
+            }
+            currentWord = quizQueue.shift();
+            document.getElementById('currentNum').innerText = totalQuestions - quizQueue.length;
+            document.getElementById('qJapanese').innerText = currentWord.japanese;
+            document.getElementById('userAnswer').value = '';
+            document.getElementById('userAnswer').focus();
+            document.getElementById('feedback').innerText = '';
+        }
+
+        function checkAnswer() {
+            if (isProcessing) return;
+            const ans = document.getElementById('userAnswer').value.trim();
+            if (!ans) return;
+            isProcessing = true; 
+
+            const fb = document.getElementById('feedback');
+            const currentTable = localStorage.getItem('lastTableName');
+            let wrongData = JSON.parse(localStorage.getItem('wrong_data_' + currentTable) || "{}");
+            
+            if (ans === currentWord.english) {
+                correctCount++;
+                fb.innerHTML = "<span style='color:var(--primary)'>✅ 正解！</span>";
+                if (wrongData[currentWord.english] !== undefined) {
+                    wrongData[currentWord.english]++;
+                    if (wrongData[currentWord.english] >= 3) delete wrongData[currentWord.english];
+                    localStorage.setItem('wrong_data_' + currentTable, JSON.stringify(wrongData));
+                }
+                setTimeout(nextQuestion, 800);
+            } else {
+                wrongData[currentWord.english] = 0; 
+                localStorage.setItem('wrong_data_' + currentTable, JSON.stringify(wrongData));
+                fb.innerHTML = `<span style='color:#e74c3c'>❌ 不正解... 答: ${currentWord.english}</span>`;
+                setTimeout(nextQuestion, 1800);
+            }
+        }
+
+        async function showResult() {
+            const percent = Math.round((correctCount / totalQuestions) * 100);
+            const nickname = document.getElementById('nickname').value.trim() || 'anonymous';
+            const currentTable = localStorage.getItem('lastTableName');
+            document.getElementById('finalScore').innerText = percent + "%";
+            document.getElementById('resultDetail').innerText = (currentMode === 'exam' ? `[本番: ${nickname}] ` : "[練習] ") + `${totalQuestions}問中 ${correctCount}問正解でした。`;
+            
+            if (currentMode === 'exam') {
+                await supabaseClient.from('quiz_results').insert([{ table_name: currentTable, nickname: nickname, score_percent: percent, correct_count: correctCount, total_count: totalQuestions }]);
+                await updateRanking(currentTable);
+            } else {
+                document.getElementById('rankingArea').style.display = 'none';
+            }
+            showPage('page-result');
+        }
+
+        async function updateRanking(tableName) {
+            const { data } = await supabaseClient.from('quiz_results').select('nickname, score_percent, created_at').eq('table_name', tableName).order('score_percent', { ascending: false }).order('created_at', { ascending: true }).limit(10);
+            if (data && data.length > 0) {
+                const rankingList = document.getElementById('rankingList');
+                let html = "";
+                let lastScore = -1, rank = 0;
+                data.slice(0, 5).forEach((res, i) => {
+                    if (res.score_percent !== lastScore) rank = i + 1;
+                    html += `<div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px dashed #cbd5e1;"><span>${rank}位: ${res.nickname}</span><b>${res.score_percent}%</b></div>`;
+                    lastScore = res.score_percent;
+                });
+                rankingList.innerHTML = html;
+                document.getElementById('rankingArea').style.display = 'block';
+            }
+        }
     </script>
 </body>
 </html>
